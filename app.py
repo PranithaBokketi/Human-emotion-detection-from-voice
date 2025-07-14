@@ -19,7 +19,9 @@ def extract_features(audio_file):
     mfccs = np.mean(librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40).T, axis=0)
 
     # Chroma (12)
-    stft = np.abs(librosa.stft(y))
+    n_fft = min(2048, len(y))
+    stft = np.abs(librosa.stft(y, n_fft=n_fft))
+
     chroma = np.mean(librosa.feature.chroma_stft(S=stft, sr=sr).T, axis=0)
 
     # Mel spectrogram (128)
@@ -37,10 +39,10 @@ def predict_emotion(audio_file):
     return prediction[0]
 
 # Streamlit UI
-st.set_page_config(page_title="Voice Emotion Detector", layout="centered", page_icon="🎤")
-st.title("🎧 Human Emotion Detection from Voice")
+st.set_page_config(page_title="Voice Emotion Detector", layout="centered")
+st.title("Human Emotion Detection from Voice")
 
-st.markdown("### 📁 Upload a .wav File")
+st.markdown("### Upload a .wav File")
 uploaded_file = st.file_uploader("Drag and drop file here", type=["wav"])
 
 if uploaded_file is not None:
@@ -51,18 +53,23 @@ if uploaded_file is not None:
 
     st.audio(tmpfile_path, format='audio/wav')
     result = predict_emotion(tmpfile_path)
-    st.success(f"🎯 **Predicted Emotion:** {result.upper()}")
+    st.success(f"Predicted Emotion: {result.upper()}")
 
 st.markdown("---")
-st.markdown("### 🎙️ Or Record Using Microphone")
+st.markdown("### Or Record Using Microphone")
 
 # Record from mic and save temp audio
 ctx = webrtc_streamer(
     key="mic",
     mode=WebRtcMode.SENDONLY,
     media_stream_constraints={"audio": True, "video": False},
+    rtc_configuration={
+        "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
+    },
     audio_receiver_size=2048,
 )
+
+
 
 if ctx.audio_receiver:
     try:
@@ -73,6 +80,7 @@ if ctx.audio_receiver:
                 sf.write(f.name, np.frombuffer(audio_data, dtype=np.int16), 48000)
                 st.audio(f.name, format='audio/wav')
                 result = predict_emotion(f.name)
-                st.success(f"🎯 **Predicted Emotion:** {result.upper()}")
+                st.success(f"Predicted Emotion: {result.upper()}")
     except Exception as e:
         st.error(f"Error processing audio: {e}")
+
