@@ -15,13 +15,16 @@ with open("emotion_model.pkl", "rb") as f:
 def extract_features(audio_file):
     y, sr = librosa.load(audio_file, sr=None)
 
+    # Handle short audio clips
+    if len(y) < 2048:
+        y = np.pad(y, (0, 2048 - len(y)))
+
     # MFCCs (40)
     mfccs = np.mean(librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40).T, axis=0)
 
-    # Chroma (12)
-    n_fft = min(2048, len(y))
+    # Chroma (12) with adjusted n_fft
+    n_fft = 2048 if len(y) >= 2048 else 512  # Use smaller window if signal is short
     stft = np.abs(librosa.stft(y, n_fft=n_fft))
-
     chroma = np.mean(librosa.feature.chroma_stft(S=stft, sr=sr).T, axis=0)
 
     # Mel spectrogram (128)
@@ -30,6 +33,7 @@ def extract_features(audio_file):
     # Combine all features
     features = np.hstack([mfccs, chroma, mel])
     return features.reshape(1, -1)
+
 
 
 # Function to predict emotion
